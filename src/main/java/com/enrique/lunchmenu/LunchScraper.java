@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -32,7 +33,7 @@ public class LunchScraper {
             Map.entry("Torsdag", DayOfWeek.THURSDAY),
             Map.entry("Fredag", DayOfWeek.FRIDAY),
             Map.entry("Lördag", DayOfWeek.SATURDAY),
-            Map.entry("söndag", DayOfWeek.SUNDAY)
+            Map.entry("Söndag", DayOfWeek.SUNDAY)
     );
 
     public List<DailyMenu> fetchWeeklyMenu(String url, String sourceName) throws IOException {
@@ -41,6 +42,15 @@ public class LunchScraper {
                 .timeout(15000)
                 .get();
 
+        // ───────────────────────────────────────────────
+        // Special handling for District One
+        // ───────────────────────────────────────────────
+        if ("District One".equals(sourceName) || url.contains("districtone.se")) {
+            System.out.println("District One detected, using parseDistrictOne method.");
+            return parseDistrictOne(doc, sourceName, url);
+        }
+
+        //Original generic parsing logic can go here for other restaurants
         Element weekly = Optional.ofNullable(
                 doc.selectFirst("#weekly-menu, .weekly-menu, section:matchesOwn((?i)veckans|lunch)")
         ).orElse(doc.body());
@@ -127,4 +137,77 @@ public class LunchScraper {
         if (diff < 0) diff += 7;
         return today.plusDays(diff);
     }
+
+    private List<DailyMenu> parseDistrictOne(Document doc, String sourceName, String url) {
+    List<DailyMenu> results = new ArrayList<>();
+
+    // Hämta all text med nya rader bevarade
+    String fullText = doc.body().wholeText();
+    System.out.println("Fetched text length: ~" + fullText.length());
+
+    String[] lines = fullText.split("\\r?\\n");
+
+    String[] weekdays = {"Måndag", "Tisdag", "Onsdag", "Torsdag", "Fredag"};
+    // Vanliga kategorier (lägg till fler om behövs)
+    java.util.Set<String> categories = new java.util.HashSet<>(Arrays.asList(
+        "Fisk", "Kött", "Sallad", "Vegetarisk", "Poke bowl", "Vegetarisk Poke bowl",
+        "Pho", "Fried Chicken", "Asiatisk", "Bao buns"
+    ));
+
+    LocalDate currentDate = null;
+    List<MenuItem> currentItems = null;
+    String pendingCategory = null;
+
+    for (String lineRaw : lines) {
+        String line = lineRaw.trim();
+        if (line.isEmpty() || line.matches("^\\.+\\s*$")) continue;
+
+        // Ny dag?
+        if (Arrays.asList(weekdays).contains(line)) {
+            // Spara föregående dag om den har items
+            if (currentDate != null && currentItems != null && !currentItems.isEmpty()) {
+                results.add(new DailyMenu(currentDate, currentItems, sourceName, url));
+            }
+            DayOfWeek dow = SV_WEEKDAYS.get(line.toLowerCase(Locale.ROOT));
+            if (dow != null) {
+                currentDate = dateForUpcoming(dow);
+                currentItems = new ArrayList<>();
+                System.out.println("Detected day: " + line + " (" + currentDate + ")");
+            }
+            pendingCategory = null;
+            continue;
+        }
+
+        if (currentItems == null) continue; // Innehåll innan första dagen ignoreras
+
+        // Är det en kategori?
+        if (categories.contains(line) || line.startsWith("Vegetarisk") || line.contains("bowl")) {  // lite flex för variationer
+            if (pendingCategory != null) {
+                // Om föregående kategori saknade desc → lägg till tom eller skippa
+            }
+            pendingCategory = line;
+            continue;
+        }
+
+        // Annars: antag att det är beskrivning till pending kategori
+        if (pendingCategory != null) {
+            String title = pendingCategory;
+            String desc = line;
+            Double price = 135.0;
+
+            currentItems.add(new MenuItem(title, desc, price));
+            System.out.println("  Added: " + title + " → " + desc.substring(0, Math.min(50, desc.length())) + "...");
+            pendingCategory = null;
+        }
+    }
+
+    // Spara sista dagen
+    if (currentDate != null && currentItems != null && !currentItems.isEmpty()) {
+        results.add(new DailyMenu(currentDate, currentItems, sourceName, url));
+    }
+
+    System.out.println("Total parsed days: " + results.size() + " with ~" + 
+        results.stream().mapToInt(d -> d.items().size()).sum() + " items.");
+    return results;
+}
 }
