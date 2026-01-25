@@ -38,7 +38,41 @@
       <scope>runtime</scope>
     </dependency>
 
-    <!-- Testing -->
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
+     <!-- Testing -->
+ <dependency>
+   <groupId>org.junit.jupiter</groupId>
+   <artifactId>junit-jupiter</artifactId>
+   <version>5.10.3</version>          <!-- add this line -->
+   <scope>test</scope>                 <!-- add this line -->
+ </dependency>                         <!-- add this closing tag -->
+  </dependencies>
+
+  <build>
+    <plugins>
+     <plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-shade-plugin</artifactId>
+    <version>3.6.0</version>  <!-- current stable -->
+    <executions>
+        <execution>
+            <phase>package</phase>
+            <goals>
+                <goal>shade</goal>
+            </goals>
+            <configuration>
+                <transformers>
+                    <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                        <mainClass>com.enrique.lunchmenu.Main</mainClass>  <!-- ← your actual main class -->
+                    </transformer>
+                </transformers>
+                <!-- Optional: minimize size by removing unused classes (good for Jsoup etc.) -->
+                <minimizeJar>true</minimizeJar>
+                <!-- Optional: create a JAR without "-shaded" suffix -->
+                <outputFile>${project.build.directory}/${project.artifactId}-${project.version}-all.jar</outputFile>
+            </configuration>
+        </execution>
+    </executions>
+</plugin>
+    </plugins>
+  </build>
+</project>

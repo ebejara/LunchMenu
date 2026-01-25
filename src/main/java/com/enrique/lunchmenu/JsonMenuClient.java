@@ -1,16 +1,16 @@
 
 package com.enrique.lunchmenu;
 
-import com.enrique.lunchmenu.model.DailyMenu;
-import com.enrique.lunchmenu.model.MenuItem;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.LocalDate;
+
+import com.enrique.lunchmenu.model.DailyMenu;
+import com.enrique.lunchmenu.model.MenuItem;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 record ApiMenuItem(String name, String description, Double price) {}
