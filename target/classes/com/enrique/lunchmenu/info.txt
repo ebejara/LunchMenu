@@ -1,0 +1,477 @@
+Perfect — let’s set up your **Maven** project under the root folder **`LunchMenu/`** and put every file in the right place so you can run it immediately.
+
+Below I’ll assume your package is **`com.enrique.lunchmenu`** (you can change it if you prefer). I’ll include:
+
+*   The **folder structure**
+*   A **ready-to-use `pom.xml`**
+*   All **Java files** in their correct paths
+*   How to **build and run** it
+*   (Optional) a **unit test scaffold**
+
+***
+
+## 📁 Folder structure (under `LunchMenu/`)
+
+    LunchMenu/
+    ├─ pom.xml
+    └─ src/
+       ├─ main/
+       │  ├─ java/
+       │  │  └─ com/
+       │  │     └─ enrique/
+       │  │        └─ lunchmenu/
+       │  │           ├─ Main.java
+       │  │           ├─ LunchScraper.java
+       │  │           ├─ Scheduler.java          (optional: for daily scheduling)
+       │  │           ├─ JsonMenuClient.java     (optional: if a site offers JSON)
+       │  │           └─ model/
+       │  │              ├─ MenuItem.java
+       │  │              └─ DailyMenu.java
+       │  └─ resources/
+       │     └─ (optional config files)
+       └─ test/
+          ├─ java/
+          │  └─ com/
+          │     └─ enrique/
+          │        └─ lunchmenu/
+          │           └─ LunchScraperTest.java    (optional)
+          └─ resources/
+             └─ sample_week.html                  (optional)
+
+> If you keep the package as `com.enrique.lunchmenu`, **make sure the `package` line at the top of each Java file matches**.
+
+***
+
+## 🧰 `pom.xml` (place in `LunchMenu/pom.xml`)
+
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.enrique</groupId>
+  <artifactId>lunchmenu</artifactId>
+  <version>1.0.0</version>
+  <name>LunchMenu</name>
+
+  <properties>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <dependencies>
+    <!-- HTML parsing -->
+    <dependency>
+      <groupId>org.jsoup</groupId>
+      <artifactId>jsoup</artifactId>
+      <version>1.17.2</version>
+    </dependency>
+
+    <!-- JSON parsing (optional, for JSON endpoints) -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.17.2</version>
+    </dependency>
+
+    <!-- Logging -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>2.0.13</version>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- Testing -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.2</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- So you can run: mvn exec:java -Dexec.mainClass=com.enrique.lunchmenu.Main -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.5.1</version>
+      </plugin>
+      <!-- Create a runnable jar with dependencies (optional) -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>3.6.0</version>
+        <configuration>
+          <descriptorRefs>
+            <descriptorRef>jar-with-dependencies</descriptorRef>
+          </descriptorRefs>
+          <archive>
+            <manifest>
+              <mainClass>com.enrique.lunchmenu.Main</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+        <executions>
+          <execution>
+            <id>make-assembly</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>
+```
+
+***
+
+## 📄 Java files (place them exactly at the paths below)
+
+### `src/main/java/com/enrique/lunchmenu/Main.java`
+
+```java
+package com.enrique.lunchmenu;
+
+import com.enrique.lunchmenu.model.DailyMenu;
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+        // Replace with a real lunch page URL you want to parse
+        String url = "https://example.com/lunch";
+        String sourceName = "Example Bistro";
+
+        LunchScraper scraper = new LunchScraper();
+        for (DailyMenu dm : scraper.fetchWeeklyMenu(url, sourceName)) {
+            System.out.println(dm.date() + " — " + dm.sourceName());
+            dm.items().forEach(i ->
+                System.out.printf("  • %s%s%s%n",
+                    i.title(),
+                    i.description() != null ? " — " + i.description() : "",
+                    i.priceSEK() != null ? " (" + i.priceSEK().intValue() + " kr)" : "")
+            );
+        }
+
+        // If you want scheduled fetching, see Scheduler usage later
+    }
+}
+```
+
+### `src/main/java/com/enrique/lunchmenu/LunchScraper.java`
+
+```java
+package com.enrique.lunchmenu;
+
+import com.enrique.lunchmenu.model.DailyMenu;
+import com.enrique.lunchmenu.model.MenuItem;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+
+import java.io.IOException;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public class LunchScraper {
+    private static final String USER_AGENT =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
+
+    // Swedish weekday mapping
+    private static final Map<String, DayOfWeek> SV_WEEKDAYS = Map.ofEntries(
+            Map.entry("måndag", DayOfWeek.MONDAY),
+            Map.entry("tisdag", DayOfWeek.TUESDAY),
+            Map.entry("onsdag", DayOfWeek.WEDNESDAY),
+            Map.entry("torsdag", DayOfWeek.THURSDAY),
+            Map.entry("fredag", DayOfWeek.FRIDAY),
+            Map.entry("lördag", DayOfWeek.SATURDAY),
+            Map.entry("söndag", DayOfWeek.SUNDAY)
+    );
+
+    public List<DailyMenu> fetchWeeklyMenu(String url, String sourceName) throws IOException {
+        Document doc = Jsoup.connect(url)
+                .userAgent(USER_AGENT)
+                .timeout(15000)
+                .get();
+
+        Element weekly = Optional.ofNullable(
+                doc.selectFirst("#weekly-menu, .weekly-menu, section:matchesOwn((?i)veckans|lunch)")
+        ).orElse(doc.body());
+
+        List<DailyMenu> results = new ArrayList<>();
+        Elements headers = weekly.select("h2, h3, strong, .day-title");
+
+        Pattern dayPattern = Pattern.compile("(?i)^(måndag|tisdag|onsdag|torsdag|fredag|lördag|söndag)");
+
+        for (Element header : headers) {
+            String text = header.text().trim();
+            Matcher m = dayPattern.matcher(text);
+            if (!m.find()) continue;
+
+            String daySv = m.group(1).toLowerCase(Locale.ROOT);
+            DayOfWeek dow = SV_WEEKDAYS.get(daySv);
+            if (dow == null) continue;
+
+            LocalDate date = dateForUpcoming(dow);
+
+            Element section = nextSiblingsUntil(header, "h2, h3, strong, .day-title");
+            List<MenuItem> items = parseMenuItems(section);
+            if (!items.isEmpty()) {
+                results.add(new DailyMenu(date, items, sourceName, url));
+            }
+        }
+        return results;
+    }
+
+    private Element nextSiblingsUntil(Element start, String stopSelectors) {
+        Element container = new Element("div");
+        for (Element sib = start.nextElementSibling(); sib != null; sib = sib.nextElementSibling()) {
+            if (sib.is(stopSelectors)) break;
+            container.appendChild(sib.clone());
+        }
+        return container;
+    }
+
+    private List<MenuItem> parseMenuItems(Element container) {
+        List<MenuItem> items = new ArrayList<>();
+        if (container == null) return items;
+
+        Elements candidates = container.select("li, p, .menu-item, tr");
+        for (Element el : candidates) {
+            String txt = el.text().replaceAll("\\s+", " ").trim();
+            if (txt.isBlank()) continue;
+
+            Double price = extractPriceSEK(txt);
+            String clean = txt.replaceAll("(\\d+[\\.,]?\\d*)\\s*(kr|:-)", "").trim();
+
+            String title = clean;
+            String desc = null;
+            int dash = clean.indexOf(" – ");
+            if (dash < 0) dash = clean.indexOf(" - ");
+            if (dash > 0) {
+                title = clean.substring(0, dash).trim();
+                desc = clean.substring(dash + 3).trim();
+            }
+
+            if (title.length() < 3 || title.matches("(?i).*allerg.*|.*öppet.*|.*serveras.*")) continue;
+            items.add(new MenuItem(title, desc, price));
+        }
+        return items;
+    }
+
+    private Double extractPriceSEK(String s) {
+        Matcher m = Pattern.compile("(\\d+[\\.,]?\\d*)\\s*(kr|:-)", Pattern.CASE_INSENSITIVE).matcher(s);
+        if (m.find()) {
+            return Double.valueOf(m.group(1).replace(",", "."));
+        }
+        return null;
+    }
+
+    private LocalDate dateForUpcoming(DayOfWeek dow) {
+        LocalDate today = LocalDate.now();
+        int diff = dow.getValue() - today.getDayOfWeek().getValue();
+        if (diff < 0) diff += 7;
+        return today.plusDays(diff);
+    }
+}
+```
+
+### `src/main/java/com/enrique/lunchmenu/model/MenuItem.java`
+
+```java
+package com.enrique.lunchmenu.model;
+
+public record MenuItem(String title, String description, Double priceSEK) {}
+```
+
+### `src/main/java/com/enrique/lunchmenu/model/DailyMenu.java`
+
+```java
+package com.enrique.lunchmenu.model;
+
+import java.time.LocalDate;
+import java.util.List;
+
+public record DailyMenu(LocalDate date, List<MenuItem> items, String sourceName, String sourceUrl) {}
+```
+
+### (Optional) `src/main/java/com/enrique/lunchmenu/Scheduler.java`
+
+```java
+package com.enrique.lunchmenu;
+
+import java.time.*;
+import java.util.concurrent.*;
+
+public class Scheduler {
+    private final ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
+
+    public void scheduleDailyAt(Runnable task, LocalTime time, ZoneId zone) {
+        Runnable wrapped = () -> { try { task.run(); } catch (Exception e) { e.printStackTrace(); } };
+        long initialDelay = Duration.between(Instant.now(), nextRunInstant(time, zone)).toMillis();
+        exec.scheduleAtFixedRate(wrapped, initialDelay, Duration.ofDays(1).toMillis(), TimeUnit.MILLISECONDS);
+    }
+
+    private Instant nextRunInstant(LocalTime time, ZoneId zone) {
+        ZonedDateTime now = ZonedDateTime.now(zone);
+        ZonedDateTime target = now.with(time);
+        if (!target.isAfter(now)) target = target.plusDays(1);
+        return target.toInstant();
+    }
+}
+```
+
+### (Optional) `src/main/java/com/enrique/lunchmenu/JsonMenuClient.java`
+
+```java
+package com.enrique.lunchmenu;
+
+import com.enrique.lunchmenu.model.DailyMenu;
+import com.enrique.lunchmenu.model.MenuItem;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.LocalDate;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+record ApiMenuItem(String name, String description, Double price) {}
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+record ApiDailyMenu(String date, java.util.List<ApiMenuItem> items) {}
+
+public class JsonMenuClient {
+    private final HttpClient client = HttpClient.newHttpClient();
+    private final ObjectMapper mapper = new ObjectMapper();
+
+    public DailyMenu fetch(String url, String sourceName) throws Exception {
+        HttpRequest req = HttpRequest.newBuilder(URI.create(url)).GET().build();
+        HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() != 200) throw new RuntimeException("HTTP " + resp.statusCode());
+
+        ApiDailyMenu api = mapper.readValue(resp.body(), ApiDailyMenu.class);
+        var items = api.items().stream()
+                .map(i -> new MenuItem(i.name(), i.description(), i.price()))
+                .toList();
+
+        return new DailyMenu(LocalDate.parse(api.date()), items, sourceName, url);
+    }
+}
+```
+
+***
+
+## ▶️ Build & Run
+
+From the **`LunchMenu/`** root folder:
+
+**Build**
+
+```bash
+mvn -q clean package
+```
+
+**Run (using exec plugin)**
+
+```bash
+mvn -q exec:java -Dexec.mainClass="com.enrique.lunchmenu.Main"
+```
+
+**Or run the fat JAR (after `mvn package`)**
+
+```bash
+java -jar target/lunchmenu-1.0.0-jar-with-dependencies.jar
+```
+
+> Don’t forget to replace the `url` in `Main.java` with a real lunch page.
+
+***
+
+## (Optional) Unit test scaffold
+
+### `src/test/java/com/enrique/lunchmenu/LunchScraperTest.java`
+
+```java
+package com.enrique.lunchmenu;
+
+import com.enrique.lunchmenu.model.DailyMenu;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class LunchScraperTest {
+
+    @Test
+    void parsesSampleWeek() throws Exception {
+        String html = """
+            <section id="weekly-menu">
+              <h2>Måndag</h2>
+              <ul class="items">
+                <li>Pasta Bolognese 119 kr</li>
+                <li>Veg – Svamprisotto 109:-</li>
+              </ul>
+              <h2>Tisdag</h2>
+              <p>Fiskgryta – med aioli 125 kr</p>
+            </section>
+            """;
+        Document doc = Jsoup.parse(html);
+        LunchScraper scraper = new LunchScraper() {
+            @Override
+            public List<DailyMenu> fetchWeeklyMenu(String url, String sourceName) {
+                // Inject the parsed doc directly by slightly reusing internal logic if you refactor,
+                // or test parseMenuItems via reflection / package-private methods in real code.
+                return List.of(); // Keep this as a placeholder; focus on parsing helpers in unit tests.
+            }
+        };
+
+        // You can also refactor LunchScraper to expose a method that takes a Document directly
+        // for easier unit testing.
+        assertTrue(true);
+    }
+}
+```
+
+***
+
+## (Nice to have) `.gitignore`
+
+Create `LunchMenu/.gitignore`:
+
+    /target/
+    *.log
+    *.iml
+    .idea/
+    .vscode/
+    .DS_Store
+
+***
+
+## Next steps for you
+
+1.  Create the folders and files exactly as above.
+2.  Replace `url` in `Main.java` with one real lunch page.
+3.  Run `mvn clean package` and then `mvn exec:java -Dexec.mainClass="com.enrique.lunchmenu.Main"`.
+
+If you share **one real URL** you want to parse, I’ll customize the selector logic in `LunchScraper` to match that site precisely (so it works out-of-the-box).

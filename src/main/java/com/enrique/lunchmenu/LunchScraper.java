@@ -26,12 +26,12 @@ public class LunchScraper {
 
     // Swedish weekday mapping
     private static final Map<String, DayOfWeek> SV_WEEKDAYS = Map.ofEntries(
-            Map.entry("måndag", DayOfWeek.MONDAY),
-            Map.entry("tisdag", DayOfWeek.TUESDAY),
-            Map.entry("onsdag", DayOfWeek.WEDNESDAY),
-            Map.entry("torsdag", DayOfWeek.THURSDAY),
-            Map.entry("fredag", DayOfWeek.FRIDAY),
-            Map.entry("lördag", DayOfWeek.SATURDAY),
+            Map.entry("Måndag", DayOfWeek.MONDAY),
+            Map.entry("Tisdag", DayOfWeek.TUESDAY),
+            Map.entry("Onsdag", DayOfWeek.WEDNESDAY),
+            Map.entry("Torsdag", DayOfWeek.THURSDAY),
+            Map.entry("Fredag", DayOfWeek.FRIDAY),
+            Map.entry("Lördag", DayOfWeek.SATURDAY),
             Map.entry("söndag", DayOfWeek.SUNDAY)
     );
 
