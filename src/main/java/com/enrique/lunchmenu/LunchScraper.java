@@ -45,8 +45,8 @@ public class LunchScraper {
         // ───────────────────────────────────────────────
         // Special handling for District One
         // ───────────────────────────────────────────────
-        if ("District One".equals(sourceName) || url.contains("districtone.se")) {
-            System.out.println("District One detected, using parseDistrictOne method.");
+        if ("Spira GC".equals(sourceName) || url.contains("spirafood.se")) {
+            System.out.println("Spira Food detected, using parseDistrictOne method.");
             return parseDistrictOne(doc, sourceName, url);
         }
 

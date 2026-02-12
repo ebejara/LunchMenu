@@ -11,7 +11,7 @@ public class Main {
 
         // Test with 1–3 real restaurants (update URLs if needed!)
         String[][] restaurants = {
-            {"Bistrot", "https://bistrot.se/"},
+            {"Spira GC", "https://spirafood.se/volvo-lunchmeny"},
             {"Kooperativet", "https://www.kooperativet.se/meny/"},
             {"District One", "https://districtone.se/lunch.html"}
         };
