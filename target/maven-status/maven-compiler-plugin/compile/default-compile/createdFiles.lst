@@ -1,0 +1,8 @@
+com\enrique\lunchmenu\model\DailyMenu.class
+com\enrique\lunchmenu\model\MenuItem.class
+com\enrique\lunchmenu\JsonMenuClient.class
+com\enrique\lunchmenu\Scheduler.class
+com\enrique\lunchmenu\LunchScraper.class
+com\enrique\lunchmenu\Main.class
+com\enrique\lunchmenu\ApiDailyMenu.class
+com\enrique\lunchmenu\ApiMenuItem.class
